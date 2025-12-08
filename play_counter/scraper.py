@@ -27,18 +27,20 @@ def send_discord_notification(game: str, error_message: str):
         print(f"⚠️ Error sending Discord notification: {e}")
 
 
-async def fetch_cumulative(game: str) -> int:
+async def fetch_player_data(game: str) -> dict:
     """
-    Logs into the game website and retrieves the cumulative play count from the Player Data page.
+    Logs into the game website and retrieves player data (rating + cumulative play count).
 
-    For chunithm: Navigates to https://chunithm-net-eng.com/mobile/home/playerData
-       and extracts the number from:
-         <div class="user_data_play_count">
-             <div class="user_data_text">72</div>
-         </div>
+    Returns:
+        dict: {"rating": float/int, "cumulative": int}
 
-    For maimai: Navigates to https://maimaidx-eng.com/maimai-mobile/playerData/ and uses regex
-       to extract the cumulative count (e.g., "maimaiDX total play count：300").
+    For chunithm:
+        - Rating from home page: extracts from .player_rating_num_block images
+        - Play count from playerData page: extracts from .user_data_play_count
+
+    For maimai:
+        - Rating from home page: extracts from .rating_block
+        - Play count from playerData page: extracts via regex "maimaiDX total play count：XXX"
     """
     last_error = None
 
@@ -62,14 +64,13 @@ async def fetch_cumulative(game: str) -> int:
 
                 # Check the agreement checkbox right before login
                 if game == "maimai":
-                    # Maimai has specific .agree class
                     await page.locator(
                         "label.c-form__label--bg.agree input#agree"
                     ).click()
                     await page.wait_for_timeout(1000)
 
                     # Ensure checkbox is checked (retry if needed)
-                    for i in range(3):  # Try up to 3 times
+                    for i in range(3):
                         is_checked = await page.locator(
                             "label.c-form__label--bg.agree input#agree"
                         ).is_checked()
@@ -84,16 +85,13 @@ async def fetch_cumulative(game: str) -> int:
                         await page.wait_for_timeout(500)
 
                 elif game == "chunithm":
-                    # Chunithm uses basic .c-form__label--bg without .agree class
-                    # Use text-based selector to avoid conflict with maimai checkbox
                     await page.get_by_text(
                         "Agree to the terms of use for Aime service"
                     ).click()
                     await page.wait_for_timeout(1000)
 
                     # Ensure checkbox is checked (retry if needed)
-                    for i in range(3):  # Try up to 3 times
-                        # Use the specific checkbox that's NOT in the .agree label
+                    for i in range(3):
                         is_checked = await page.locator(
                             "label.c-form__label--bg:not(.agree) input#agree"
                         ).is_checked()
@@ -125,6 +123,40 @@ async def fetch_cumulative(game: str) -> int:
                     await browser.close()
                     raise
 
+                # === STEP 1: Get rating from home page ===
+                print(f"🔄 Extracting {game} rating from home page...")
+
+                if game == "chunithm":
+                    # Parse rating from images
+                    rating_block = page.locator(".player_rating_num_block")
+                    images = await rating_block.locator("img").all()
+
+                    rating_str = ""
+                    for img in images:
+                        src = await img.get_attribute("src")
+                        if not src:
+                            continue
+
+                        filename = src.split("/")[-1]
+
+                        if "comma" in filename:
+                            rating_str += "."
+                        elif "rating_" in filename:
+                            digit = filename.split("_")[-1].replace(".png", "")
+                            rating_str += str(int(digit))
+
+                    rating = float(rating_str) if rating_str else 0.0
+
+                elif game == "maimai":
+                    # Simple text extraction
+                    rating_text = await page.locator(".rating_block").inner_text()
+                    rating = int(rating_text) if rating_text.isdigit() else 0
+
+                print(f"✅ {game} rating: {rating}")
+
+                # === STEP 2: Navigate to play data page ===
+                print(f"🔄 Navigating to {game} play data page...")
+
                 if game == "chunithm":
                     await page.goto(
                         f"{HOME_URLS[game]}playerData", wait_until="domcontentloaded"
@@ -151,8 +183,12 @@ async def fetch_cumulative(game: str) -> int:
 
                 await context.tracing.stop(path="trace.zip")
                 await browser.close()
-                print(f"✅ Fetched cumulative {game} play count: {cumulative}")
-                return cumulative
+
+                print(
+                    f"✅ Fetched {game} data - Rating: {rating}, Cumulative: {cumulative}"
+                )
+                return {"rating": rating, "cumulative": cumulative}
+
         except Exception as e:
             last_error = str(e)
             print(f"⚠️ Attempt {attempt} failed: {e}")
@@ -162,4 +198,11 @@ async def fetch_cumulative(game: str) -> int:
             else:
                 print("❌ All retries failed.")
                 send_discord_notification(game, last_error)
-                return 0
+                return {"rating": 0 if game == "maimai" else 0.0, "cumulative": 0}
+
+
+# Backward compatibility wrapper (if needed elsewhere)
+async def fetch_cumulative(game: str) -> int:
+    """Legacy function - returns only cumulative count"""
+    data = await fetch_player_data(game)
+    return data["cumulative"]

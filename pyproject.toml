@@ -1,7 +1,7 @@
 [project]
 name = "chunimai-spend-tracker"
-version = "0.1.2"
-description = "A project that track your spending on maimai and chunithm"
+version = "1.0.0"
+description = "A project that track your playcount and rating on maimai and chunithm"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -9,4 +9,9 @@ dependencies = [
     "envparse>=0.2.0",
     "playwright>=1.52.0",
     "requests>=2.32.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest-playwright>=0.7.2",
 ]

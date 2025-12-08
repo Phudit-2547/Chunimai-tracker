@@ -27,6 +27,8 @@ async def upsert_play_data(
     chunithm_new: int,
     maimai_cumulative: int,
     chunithm_cumulative: int,
+    maimai_rating: int,
+    chunithm_rating: float,
 ):
     conn = await connect_db()
     try:
@@ -35,19 +37,24 @@ async def upsert_play_data(
             """
             INSERT INTO public.play_data
                 (play_date, maimai_play_count, chunithm_play_count,
-                 maimai_cumulative, chunithm_cumulative)
-            VALUES ($1,$2,$3,$4,$5)
+                 maimai_cumulative, chunithm_cumulative,
+                 maimai_rating, chunithm_rating)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)
             ON CONFLICT (play_date) DO UPDATE
               SET maimai_play_count=EXCLUDED.maimai_play_count,
                   chunithm_play_count=EXCLUDED.chunithm_play_count,
                   maimai_cumulative=EXCLUDED.maimai_cumulative,
-                  chunithm_cumulative=EXCLUDED.chunithm_cumulative
+                  chunithm_cumulative=EXCLUDED.chunithm_cumulative,
+                  maimai_rating=EXCLUDED.maimai_rating,
+                  chunithm_rating=EXCLUDED.chunithm_rating
             """,
             date_obj,
             maimai_new,
             chunithm_new,
             maimai_cumulative,
             chunithm_cumulative,
+            maimai_rating,
+            chunithm_rating,
         )
         print(
             f"✅ Data saved: {date_str} | Maimai new: {maimai_new}, Chunithm new: {chunithm_new} | "

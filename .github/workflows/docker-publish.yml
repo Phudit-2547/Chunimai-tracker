@@ -11,7 +11,7 @@ on:
 
 env:
     REGISTRY: ghcr.io
-    IMAGE_NAME: ${{ github.repository }} # Phudit-2547/Chunimai_spend_tracker
+    IMAGE_NAME: phudit-2547/chunimai-tracker
 
 jobs:
     build-and-push:

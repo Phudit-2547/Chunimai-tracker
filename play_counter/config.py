@@ -1,10 +1,17 @@
+from pathlib import Path
+
 from envparse import env
 
-env.read_envfile()
+# Only read .env file if it exists on disk.
+# In Docker, env vars are injected via docker-compose env_file — no .env file needed.
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+if _env_path.is_file():
+    env.read_envfile(str(_env_path))
 
 DISCORD_WEBHOOK_URL = env("DISCORD_WEBHOOK_URL")
 WEEKREPORT_WEBHOOK = env.str("WEEKREPORT_WEBHOOK", default=DISCORD_WEBHOOK_URL)
 DATABASE_URL = env("DATABASE_URL")
+LOCAL_DATABASE_URL = env.str("LOCAL_DATABASE_URL", default="")
 USERNAME = env("USERNAME")
 PASSWORD = env("PASSWORD")
 CONFIG = {"chunithm": True, "maimai": True}

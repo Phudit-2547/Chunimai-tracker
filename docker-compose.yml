@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chunimai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chunimai_secret}
+      POSTGRES_DB: chunimai
+      TZ: Asia/Bangkok
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chunimai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/phudit-2547/chunimai_spend_tracker:latest
+    build: . # Used only for local dev; Pi pulls the pre-built image
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override LOCAL_DATABASE_URL to use Docker network
+      LOCAL_DATABASE_URL: postgresql://chunimai:${POSTGRES_PASSWORD:-chunimai_secret}@db:5432/chunimai
+      TZ: Asia/Bangkok
+    # Auto-remove container when done (used with `docker compose run`)
+    # When using `docker compose up`, the container just stops (use --rm with `run`)
+    profiles: []
+
+volumes:
+  pgdata:

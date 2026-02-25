@@ -11,6 +11,34 @@ from play_counter.scraper import fetch_player_data
 
 
 async def main():
+    # Quick Docker health check: python main.py --test
+    if "--test" in sys.argv:
+        print("🧪 Docker health check...")
+        print(f"   Timezone:  {datetime.now().astimezone().tzinfo}")
+        print(f"   Python:    {sys.version.split()[0]}")
+        print(f"   Timestamp: {datetime.now():%Y-%m-%d %H:%M:%S}")
+
+        # Test Playwright browser
+        try:
+            from playwright.async_api import async_playwright
+
+            async with async_playwright() as p:
+                browser = await p.firefox.launch(headless=True)
+                await browser.close()
+            print("   Playwright: ✅ Firefox OK")
+        except Exception as e:
+            print(f"   Playwright: ❌ {e}")
+            sys.exit(1)
+
+        # Test DB connections
+        db_ok = await test_db_connection()
+        if db_ok:
+            print("\n✅ All systems go! Docker setup is working.")
+        else:
+            print("\n❌ Database connection failed.")
+            sys.exit(1)
+        return
+
     # Test DB connection first
     if not await test_db_connection():
         print("Exiting: Database is unreachable.")

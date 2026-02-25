@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.github/
+tests/
+*.md
+LICENSE
+.env
+trace.zip

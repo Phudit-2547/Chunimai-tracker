@@ -2,8 +2,8 @@ name: Run Scraper
 
 on:
   schedule:
-    - cron: '0 15 * * *'  # Runs daily at 22:00 Thailand time (UTC+7)
-  workflow_dispatch:  # ✅ Allows manual trigger
+    - cron: "0 15 * * *" # Runs daily at 22:00 Thailand time (UTC+7)
+  workflow_dispatch: # ✅ Allows manual trigger
 
 jobs:
   run-scraper:
@@ -12,10 +12,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install the latest version of uv and set the python version to 3.10
+      - name: Install the latest version of uv and set the python version to 3.12
         uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.10"
+          python-version: "3.12"
           enable-cache: true
 
       - name: Cache Playwright browsers
@@ -44,12 +44,11 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           USERNAME: ${{ secrets.USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
-        run: uv run python main.py 
+        run: uv run python main.py
 
       - name: Upload trace for debugging
-        if: always()  # Run even if scraper fails
+        if: always() # Run even if scraper fails
         uses: actions/upload-artifact@v4
         with:
           name: playwright-trace
           path: trace.zip
-

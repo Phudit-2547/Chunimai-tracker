@@ -125,7 +125,7 @@ wheels = [
 ]
 
 [[package]]
-name = "chunimai-spend-tracker"
+name = "chunimai-tracker"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [

@@ -3,3 +3,4 @@
 .DS_Store
 tests/
 __pycache__/
+local_backup.dump

@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: chunimai
@@ -17,6 +17,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - chunimai_tracker
 
   app:
     image: ghcr.io/phudit-2547/chunimai-tracker:latest
@@ -33,6 +35,12 @@ services:
     # Auto-remove container when done (used with `docker compose run`)
     # When using `docker compose up`, the container just stops (use --rm with `run`)
     profiles: []
+    networks:
+      - chunimai_tracker
+
+networks:
+  chunimai_tracker:
+    name: chunimai_tracker
 
 volumes:
   pgdata:

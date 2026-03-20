@@ -58,7 +58,7 @@ Go to your forked repository's **Settings** → **Secrets and variables** → **
 | Secret Name | Description | Required |
 |-------------|-------------|----------|
 | `DATABASE_URL` | PostgreSQL connection string (e.g., `postgresql://user:pass@host:5432/db`) | ✅ |
-| `DISCORD_WEBHOOK_URL` | Discord webhook URL for notifications | ✅ |
+| `DISCORD_WEBHOOK_URL` | Discord webhook URL for notifications | ❌ |
 | `USERNAME` | Your SEGA ID username | ✅ |
 | `PASSWORD` | Your SEGA ID password | ✅ |
 
@@ -84,7 +84,7 @@ Once enabled, the scraper runs automatically every day at 22:00 (Asia/Bangkok / 
 - **[uv](https://github.com/astral-sh/uv)** (recommended package manager)
 - **PostgreSQL** 17+ (or use Docker)
 - **SEGA ID** account linked to CHUNITHM / maimai DX
-- **Discord Webhook URL**
+- **Discord Webhook URL** (optional — app works without it, just no notifications)
 
 ### 1. Clone the Repository
 
@@ -103,7 +103,7 @@ Edit `.env` and fill in your values:
 
 | Variable             | Description                                      | Required |
 |----------------------|--------------------------------------------------|----------|
-| `DISCORD_WEBHOOK_URL`| Discord webhook URL for daily notifications      | ✅       |
+| `DISCORD_WEBHOOK_URL`| Discord webhook URL for notifications             | ❌       |
 | `DATABASE_URL`       | Cloud PostgreSQL connection string (primary DB)   | ✅       |
 | `USERNAME`           | SEGA ID username                                 | ✅       |
 | `PASSWORD`           | SEGA ID password                                 | ✅       |

@@ -13,6 +13,10 @@ RETRY_DELAY = 2  # seconds
 
 def send_discord_notification(game: str, error_message: str):
     """Send notification to Discord when scraping fails."""
+    if not DISCORD_WEBHOOK_URL:
+        print(f"⏭️ Skipping failure notification for {game} — DISCORD_WEBHOOK_URL not configured")
+        return
+
     payload = {
         "content": f"🚨 **Scraping Failed** 🚨\n\n**Game:** {game}\n**Error:** {error_message}\n**All {MAX_RETRIES} retries exhausted.**"
     }

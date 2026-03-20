@@ -8,7 +8,7 @@ _env_path = Path(__file__).resolve().parent.parent / ".env"
 if _env_path.is_file():
     env.read_envfile(str(_env_path))
 
-DISCORD_WEBHOOK_URL = env("DISCORD_WEBHOOK_URL")
+DISCORD_WEBHOOK_URL = env.str("DISCORD_WEBHOOK_URL", default="")
 WEEKREPORT_WEBHOOK = env.str("WEEKREPORT_WEBHOOK", default=DISCORD_WEBHOOK_URL)
 DATABASE_URL = env("DATABASE_URL")
 LOCAL_DATABASE_URL = env.str("LOCAL_DATABASE_URL", default="")

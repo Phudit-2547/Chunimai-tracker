@@ -27,6 +27,11 @@ def send_notification(
     if new_plays <= 0 and not notify_on_zero:
         return True
 
+    # Skip if Discord webhook is not configured
+    if not DISCORD_WEBHOOK_URL:
+        print(f"⏭️ Skipping notification for {game} — DISCORD_WEBHOOK_URL not configured")
+        return True
+
     # Get game-specific configuration
     config = NOTIFICATION_CONFIG.get(game, NOTIFICATION_CONFIG["default"])
 

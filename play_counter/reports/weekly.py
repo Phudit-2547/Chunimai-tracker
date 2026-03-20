@@ -10,6 +10,10 @@ from play_counter.utils.date_helpers import last_week_range
 
 async def generate_weekly_report():
     """Generates a report of weekly play averages and sends it to Discord."""
+    if not DISCORD_WEBHOOK_URL:
+        print("⏭️ Skipping weekly report — DISCORD_WEBHOOK_URL not configured")
+        return
+
     conn = await connect_db()
     try:
         # Get last week's date range

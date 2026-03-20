@@ -41,6 +41,41 @@ Chunimai-tracker/
 └── .env.example                     # Example environment variables
 ```
 
+## 🚀 Run Your Own Instance (GitHub Actions)
+
+You can run the tracker on your own GitHub account without needing to set up Docker or local Python. Just fork the repository and configure your secrets.
+
+> **Visual Guide**: Follow the step-by-step screenshots here: [Fork Chunimai Tracker Repository and Set Up Actions Secrets](https://scribehow.com/viewer/Fork_Chunimai_Tracker_Repository_and_Set_Up_Actions_Secrets__pLeL8YA5S4Kg-7uqWRPD7Q)
+
+### 1. Fork the Repository
+
+Navigate to [https://github.com/Phudit-2547/Chunimai-tracker](https://github.com/Phudit-2547/Chunimai-tracker) and click the **Fork** button. Choose your account as the owner.
+
+### 2. Configure Actions Secrets
+
+Go to your forked repository's **Settings** → **Secrets and variables** → **Actions** and click **New repository secret** for each of the following:
+
+| Secret Name | Description | Required |
+|-------------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string (e.g., `postgresql://user:pass@host:5432/db`) | ✅ |
+| `DISCORD_WEBHOOK_URL` | Discord webhook URL for notifications | ✅ |
+| `USERNAME` | Your SEGA ID username | ✅ |
+| `PASSWORD` | Your SEGA ID password | ✅ |
+
+### 3. Run the Scraper
+
+1. Go to the **Actions** tab in your forked repository.
+2. Click **Run Scraper** workflow.
+3. Click **Enable workflow** if prompted, then **Run workflow**.
+
+The scraper will execute and send a Discord notification with your play data.
+
+### 4. Automatic Scheduling
+
+Once enabled, the scraper runs automatically every day at 22:00 (Asia/Bangkok / UTC+7). You don't need to manually trigger it after the first run.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites

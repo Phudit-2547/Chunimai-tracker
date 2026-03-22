@@ -47,8 +47,9 @@ async def fetch_player_data(game: str) -> dict:
         - Play count from playerData page: extracts via regex "maimaiDX total play count：XXX"
     """
     if not USERNAME or not PASSWORD:
+        default_rating = 0 if game == "maimai" else 0.0
         print("⚠️ SEGA credentials are not configured. Returning default values.")
-        return {"rating": 0 if game == "maimai" else 0.0, "cumulative": 0}
+        return {"rating": default_rating, "cumulative": 0}
 
     last_error = None
 

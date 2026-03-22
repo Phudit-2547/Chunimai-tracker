@@ -32,6 +32,21 @@ async def get_cumulative(game: str, date_str: str) -> int:
         await conn.close()
 
 
+async def get_previous_cumulative(game: str, today_str: str) -> int:
+    """Get the most recent cumulative before today. Used to correctly calculate new plays across runs."""
+    conn = await connect_db()
+    try:
+        date_obj = datetime.strptime(today_str, "%Y-%m-%d")
+        col = f"{game}_cumulative"
+        row = await conn.fetchrow(
+            f"SELECT {col} FROM public.play_data WHERE play_date < $1 ORDER BY play_date DESC LIMIT 1",
+            date_obj,
+        )
+        return row[col] if row and row[col] is not None else 0
+    finally:
+        await conn.close()
+
+
 async def upsert_play_data(
     date_str: str,
     maimai_new: int,

@@ -1,10 +1,10 @@
 import asyncio
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from play_counter.config import CONFIG
 from play_counter.daily_play_notifier import send_notification
-from play_counter.db import get_cumulative, test_db_connection, upsert_play_data
+from play_counter.db import get_previous_cumulative, test_db_connection, upsert_play_data
 from play_counter.reports.monthly import generate_monthly_report
 from play_counter.reports.weekly import generate_weekly_report
 from play_counter.scraper import fetch_player_data
@@ -46,7 +46,6 @@ async def main():
 
     today = datetime.today()
     today_str = today.strftime("%Y-%m-%d")
-    yesterday_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 
     if today.day == 1:
         await generate_monthly_report()
@@ -63,7 +62,7 @@ async def main():
     ratings = {game: data["rating"] for game, data in player_data.items()}
 
     # Calculate new plays (same logic as before)
-    prev = {game: await get_cumulative(game, yesterday_str) for game in cumulative}
+    prev = {game: await get_previous_cumulative(game, today_str) for game in cumulative}
     new = {game: max(0, cumulative[game] - prev[game]) for game in cumulative}
 
     # Insert with ratings

@@ -5,6 +5,10 @@ from play_counter.config import DATABASE_URL, LOCAL_DATABASE_URL
 
 
 async def connect_db():
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Set it in environment variables or .env."
+        )
     return await asyncpg.connect(DATABASE_URL)
 
 
@@ -105,6 +109,10 @@ async def upsert_play_data(
 
 
 async def test_db_connection():
+    if not DATABASE_URL:
+        print("Database connection failed: DATABASE_URL is not configured.")
+        return False
+
     try:
         conn = await asyncpg.connect(DATABASE_URL)
         await conn.close()

@@ -10,10 +10,10 @@ if _env_path.is_file():
 
 DISCORD_WEBHOOK_URL = env.str("DISCORD_WEBHOOK_URL", default="")
 WEEKREPORT_WEBHOOK = env.str("WEEKREPORT_WEBHOOK", default=DISCORD_WEBHOOK_URL)
-DATABASE_URL = env("DATABASE_URL")
+DATABASE_URL = env.str("DATABASE_URL", default="")
 LOCAL_DATABASE_URL = env.str("LOCAL_DATABASE_URL", default="")
-USERNAME = env("USERNAME")
-PASSWORD = env("PASSWORD")
+USERNAME = env.str("USERNAME", default="")
+PASSWORD = env.str("PASSWORD", default="")
 CONFIG = {"chunithm": True, "maimai": True}
 
 NOTIFICATION_CONFIG = {

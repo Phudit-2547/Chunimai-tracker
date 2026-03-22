@@ -29,9 +29,15 @@ Chunimai-tracker/
 │   └── utils/
 │       ├── constants.py             # URLs, webhook references, cost per play
 │       └── date_helpers.py          # Date range utilities for reports
-├── init.sql                         # Database schema initialization
+├── init.sql                         # Database schema initialization (legacy, local Docker only)
 ├── Dockerfile                       # Multi-stage Docker build (Python 3.12 + Playwright Firefox)
 ├── docker-compose.yml               # App + Postgres 17 service definitions
+├── alembic/
+│   ├── env.py                       # Alembic environment configuration
+│   ├── script.py.mako                # Migration script template
+│   └── versions/                    # Database migration scripts
+│       └── 001_init.py              # Initial schema migration
+├── alembic.ini                      # Alembic configuration
 ├── run.sh                           # Convenience script to run via Docker
 ├── .github/workflows/
 │   ├── schedule.yml                 # Cron job — runs scraper daily at 22:00 (Asia/Bangkok)
@@ -112,6 +118,8 @@ Edit `.env` and fill in your values:
 
 ### 3a. Run with Docker (Recommended)
 
+> **Note:** Docker uses the legacy `init.sql` for local schema initialization. For cloud deployments (GitHub Actions), Alembic migrations are used instead.
+
 ```bash
 # Start Postgres and run the scraper
 ./run.sh
@@ -144,6 +152,10 @@ uv run python main.py
 
 ## 🗄️ Database Schema
 
+The tracker uses **Alembic** for database migrations, ensuring the schema is automatically created and updated.
+
+### Current Schema
+
 The tracker stores data in a single `play_data` table:
 
 ```sql
@@ -157,6 +169,26 @@ CREATE TABLE IF NOT EXISTS public.play_data (
     chunithm_rating      NUMERIC
 );
 ```
+
+### How Migrations Work
+
+- Migrations are stored in `alembic/versions/` and named sequentially (e.g., `001_init.py`, `002_xxx.py`)
+- The GitHub Actions workflow automatically runs `alembic upgrade head` before each scraper execution
+- This means **forks will automatically have their database schema created** on first run
+
+### Adding New Migrations
+
+To add a new migration (e.g., for future `play_history` table):
+
+```bash
+# Generate a new migration
+uv run alembic revision --autogenerate -m "Add play history table"
+
+# Apply migrations
+uv run alembic upgrade head
+```
+
+> **Note:** The legacy `init.sql` is only used for local Docker development. Cloud deployments (GitHub Actions) use Alembic migrations exclusively.
 
 ## ⚙️ GitHub Actions Workflows
 
@@ -177,6 +209,7 @@ CREATE TABLE IF NOT EXISTS public.play_data (
 | Language        | Python 3.12                         |
 | Web Scraping    | Playwright (Firefox, headless)      |
 | Database        | PostgreSQL 17 + asyncpg             |
+| Migrations      | Alembic                             |
 | Notifications   | Discord Webhooks                    |
 | Package Manager | uv                                  |
 | Containerization| Docker + Docker Compose             |

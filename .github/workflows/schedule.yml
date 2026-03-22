@@ -26,6 +26,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      - name: Cache session cookies
+        uses: actions/cache@v5
+        with:
+          path: cookies
+          key: ${{ runner.os }}-sega-cookies
+          restore-keys: |
+            ${{ runner.os }}-sega-cookies-
+
       - name: Install Dependencies
         run: |
           uv sync
@@ -49,9 +57,16 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
         run: uv run python main.py
 
+      - name: Upload cookies cache
+        uses: actions/cache@v5
+        with:
+          path: cookies
+          key: ${{ runner.os }}-sega-cookies
+
       - name: Upload trace for debugging
-        if: always() # Run even if scraper fails
+        if: failure() # Only upload on failure for debugging
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-trace
+          name: playwright-trace-${{ github.run_number }}
           path: trace.zip
+          retention-days: 7

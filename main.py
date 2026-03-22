@@ -61,23 +61,31 @@ async def main():
     cumulative = {game: data["cumulative"] for game, data in player_data.items()}
     ratings = {game: data["rating"] for game, data in player_data.items()}
 
-    # Calculate new plays (same logic as before)
-    prev = {game: await get_previous_cumulative(game, today_str) for game in cumulative}
-    new = {game: max(0, cumulative[game] - prev[game]) for game in cumulative}
+    # Calculate new plays (delta)
+    # prev_cumulative = the *_cumulative value from the most recent DB record (yesterday's baseline)
+    # On first run: prev_cumulative is 0, so new_plays=0 (don't record prior plays)
+    # On subsequent runs: new_plays = today's cumulative - prev_cumulative (actual delta)
+    prev_cumulative = {game: await get_previous_cumulative(game, today_str) for game in cumulative}
+    new_plays = {}
+    for game in cumulative:
+        if prev_cumulative[game] == 0:
+            new_plays[game] = 0
+        else:
+            new_plays[game] = max(0, cumulative[game] - prev_cumulative[game])
 
     # Insert with ratings
     await upsert_play_data(
         today_str,
-        new.get("maimai", 0),
-        new.get("chunithm", 0),
+        new_plays.get("maimai", 0),
+        new_plays.get("chunithm", 0),
         cumulative.get("maimai", 0),
         cumulative.get("chunithm", 0),
         ratings.get("maimai"),
         ratings.get("chunithm"),
     )
 
-    send_notification("chunithm", new.get("chunithm", 0))
-    send_notification("maimai", new.get("maimai", 0))
+    send_notification("chunithm", new_plays.get("chunithm", 0))
+    send_notification("maimai", new_plays.get("maimai", 0))
 
 
 if __name__ == "__main__":

@@ -80,6 +80,17 @@ The scraper will execute and send a Discord notification with your play data.
 
 Once enabled, the scraper runs automatically every day at 22:00 (Asia/Bangkok / UTC+7). You don't need to manually trigger it after the first run.
 
+### 5. Supported Login Methods
+
+| Login Method | GitHub Actions | Local/Docker | Cookie Caching |
+|-------------|----------------|--------------|----------------|
+| **SEGA ID** (username/password) | ✅ Full support | ✅ Full support | ✅ Works |
+| **Facebook** | ❌ No browser UI | ✅ Full support | ✅ Works |
+| **X (Twitter)** | ❌ No browser UI | ✅ Full support | ✅ Works |
+| **LINE** | ❌ No browser UI | ✅ Full support | ✅ Works |
+
+> **Note:** GitHub Actions runs headless without a browser display, so OAuth-based logins (Facebook, X, LINE) cannot be automated. If you use these methods, run the tracker locally or switch to SEGA ID for full automation support.
+
 ---
 
 ## 🚀 Getting Started

@@ -36,7 +36,8 @@ Chunimai-tracker/
 │   ├── env.py                       # Alembic environment configuration
 │   ├── script.py.mako                # Migration script template
 │   └── versions/                    # Database migration scripts
-│       └── 001_init.py              # Initial schema migration
+│       ├── 001_init.py              # Initial schema migration
+│       └── 002_add_scrape_failure.py # Add scrape_failed and failure_reason columns
 ├── alembic.ini                      # Alembic configuration
 ├── run.sh                           # Convenience script to run via Docker
 ├── .github/workflows/
@@ -159,7 +160,12 @@ uv run playwright install firefox
 
 # Run the scraper
 uv run python main.py
+
+# Backfill a past failed day (YYYY-MM-DD)
+uv run python main.py --backfill 2026-03-26
 ```
+
+> **Note:** When scraping fails, the tracker carries forward the last known cumulative and rating values from the previous successful run. Use `--backfill` to manually fix any past failed days via GitHub Actions.
 
 ## 🗄️ Database Schema
 
@@ -177,7 +183,9 @@ CREATE TABLE IF NOT EXISTS public.play_data (
     maimai_cumulative    INTEGER DEFAULT 0,
     chunithm_cumulative  INTEGER DEFAULT 0,
     maimai_rating        NUMERIC,
-    chunithm_rating      NUMERIC
+    chunithm_rating      NUMERIC,
+    scrape_failed        BOOLEAN DEFAULT FALSE,
+    failure_reason       TEXT
 );
 ```
 
@@ -206,6 +214,7 @@ uv run alembic upgrade head
 ### Scheduled Scraper (`schedule.yml`)
 - Runs daily at **22:00 Asia/Bangkok** (15:00 UTC)
 - Can also be triggered manually via `workflow_dispatch`
+- Supports backfilling past failed days via `backfill_date` input
 - Uploads Playwright trace files as artifacts for debugging
 
 ### Docker Image Publish (`docker-publish.yml`)

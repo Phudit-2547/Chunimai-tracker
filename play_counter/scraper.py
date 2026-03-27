@@ -31,23 +31,23 @@ def get_cookies_path(game: str) -> Path:
 def send_discord_notification(game: str, failure_reason: str, trace_path: str = None):
     """Send notification to Discord when scraping fails."""
     if not DISCORD_WEBHOOK_URL:
-        print(f"⏭️ Skipping failure notification for {game} — DISCORD_WEBHOOK_URL not configured")
+        print(f"[SKIP] Skipping failure notification for {game} — DISCORD_WEBHOOK_URL not configured")
         return
 
-    trace_info = f"\n📁 Trace saved: `{trace_path}`" if trace_path else ""
+    trace_info = f"\n[TRACE] Trace saved: `{trace_path}`" if trace_path else ""
 
     payload = {
-        "content": f"🚨 **Scraping Failed** 🚨\n\n**Game:** {game}\n**Reason:** `{failure_reason}`\n**All {MAX_RETRIES} retries exhausted.**{trace_info}"
+        "content": f"[FAIL] **Scraping Failed** [FAIL]\n\n**Game:** {game}\n**Reason:** `{failure_reason}`\n**All {MAX_RETRIES} retries exhausted.**{trace_info}"
     }
 
     try:
         response = requests.post(DISCORD_WEBHOOK_URL, json=payload)
         if response.status_code == 204:
-            print("✅ Discord notification sent successfully")
+            print("[OK] Discord notification sent successfully")
         else:
-            print(f"⚠️ Failed to send Discord notification: {response.status_code}")
+            print(f"[WARN] Failed to send Discord notification: {response.status_code}")
     except Exception as e:
-        print(f"⚠️ Error sending Discord notification: {e}")
+        print(f"[WARN] Error sending Discord notification: {e}")
 
 
 async def login_with_sega(page, game: str) -> bool:
@@ -67,7 +67,7 @@ async def login_with_sega(page, game: str) -> bool:
             ).is_checked()
             if is_checked:
                 break
-            print(f"🔄 Checkbox unchecked, clicking again... (attempt {i + 1})")
+            print(f"[RETRY] Checkbox unchecked, clicking again... (attempt {i + 1})")
             await page.locator("label.c-form__label--bg.agree input#agree").click()
             await page.wait_for_timeout(500)
 
@@ -81,7 +81,7 @@ async def login_with_sega(page, game: str) -> bool:
             ).is_checked()
             if is_checked:
                 break
-            print(f"🔄 Checkbox unchecked, clicking again... (attempt {i + 1})")
+            print(f"[RETRY] Checkbox unchecked, clicking again... (attempt {i + 1})")
             await page.get_by_text(
                 "Agree to the terms of use for Aime service"
             ).click()
@@ -89,7 +89,7 @@ async def login_with_sega(page, game: str) -> bool:
 
     await page.wait_for_selector("button#btnSubmit:not([disabled])", timeout=10000)
     await page.locator("button#btnSubmit").click()
-    print("✅ Login button clicked successfully")
+    print("[OK] Login button clicked successfully")
 
 
 async def is_logged_in(page, game: str) -> bool:
@@ -98,7 +98,7 @@ async def is_logged_in(page, game: str) -> bool:
         await page.goto(LOGIN_URLS[game], wait_until="domcontentloaded")
         # If we're on the home page, we're logged in
         if page.url.startswith(HOME_URLS[game]):
-            print("🔄 Using cached session (already logged in)")
+            print("[RETRY] Using cached session (already logged in)")
             return True
         return False
     except Exception:
@@ -111,7 +111,7 @@ async def save_cookies(context, game: str) -> None:
     cookies_path = get_cookies_path(game)
     with open(cookies_path, "w") as f:
         json.dump(cookies, f)
-    print(f"💾 Saved cookies to {cookies_path}")
+    print(f"[SAVE] Saved cookies to {cookies_path}")
 
 
 async def load_cookies(context, game: str) -> bool:
@@ -123,10 +123,10 @@ async def load_cookies(context, game: str) -> bool:
         with open(cookies_path) as f:
             cookies = json.load(f)
         await context.add_cookies(cookies)
-        print(f"📂 Loaded cookies from {cookies_path}")
+        print(f"[LOAD] Loaded cookies from {cookies_path}")
         return True
     except Exception as e:
-        print(f"⚠️ Failed to load cookies: {e}")
+        print(f"[WARN] Failed to load cookies: {e}")
         return False
 
 
@@ -154,7 +154,7 @@ async def save_failure_trace(context, game: str) -> str:
         await context.tracing.stop(path=str(trace_path))
         return str(trace_path)
     except Exception as e:
-        print(f"⚠️ Failed to save trace: {e}")
+        print(f"[WARN] Failed to save trace: {e}")
         return None
 
 
@@ -184,7 +184,7 @@ async def fetch_player_data(game: str) -> dict:
 
     if not USERNAME or not PASSWORD:
         default_rating = 0 if game == "maimai" else 0.0
-        print("⚠️ SEGA credentials are not configured. Returning default values.")
+        print("[WARN] SEGA credentials are not configured. Returning default values.")
         return {"rating": default_rating, "cumulative": 0, "failed": True, "failure_reason": "credentials_not_configured"}
 
     cookies_loaded = False
@@ -210,29 +210,29 @@ async def fetch_player_data(game: str) -> dict:
                     if cookies_loaded:
                         if await is_logged_in(page, game):
                             using_cached_session = True
-                            print(f"✅ Using cached session for {game}")
+                            print(f"[OK] Using cached session for {game}")
                         else:
-                            print(f"⚠️ Cookies expired, performing fresh login...")
+                            print("[WARN] Cookies expired, performing fresh login...")
                             using_cached_session = False
                             cookies_path.unlink(missing_ok=True)
                             await login_with_sega(page, game)
                             await save_cookies(context, game)
                 else:
                     using_cached_session = False
-                    print(f"🔄 No cached cookies found, logging in...")
+                    print("[RETRY] No cached cookies found, logging in...")
                     await login_with_sega(page, game)
                     await save_cookies(context, game)
 
                 login_time = time.perf_counter() - login_start
 
-                print(f"🔄 Waiting for {game} home page...")
+                print(f"[RETRY] Waiting for {game} home page...")
                 try:
                     await page.wait_for_url(HOME_URLS[game], timeout=10000)
-                except Exception as e:
+                except Exception:
                     failure_reason = await capture_failure_details(page)
-                    print(f"❌ Failed to load {game} home page: {failure_reason}")
+                    print(f"[ERROR] Failed to load {game} home page: {failure_reason}")
                     if cookies_loaded:
-                        print("🔄 Cached session failed, retrying with fresh login...")
+                        print("[RETRY] Cached session failed, retrying with fresh login...")
                         cookies_path = get_cookies_path(game)
                         cookies_path.unlink(missing_ok=True)
                         using_cached_session = False
@@ -246,7 +246,7 @@ async def fetch_player_data(game: str) -> dict:
                         raise
 
                 # === Get rating ===
-                print(f"🔄 Extracting {game} rating from home page...")
+                print(f"[RETRY] Extracting {game} rating from home page...")
 
                 if game == "chunithm":
                     rating_block = page.locator(".player_rating_num_block")
@@ -272,10 +272,10 @@ async def fetch_player_data(game: str) -> dict:
                     rating_text = await page.locator(".rating_block").inner_text()
                     rating = int(rating_text) if rating_text.isdigit() else 0
 
-                print(f"✅ {game} rating: {rating}")
+                print(f"[OK] {game} rating: {rating}")
 
                 # === Get play count ===
-                print(f"🔄 Navigating to {game} play data page...")
+                print(f"[RETRY] Navigating to {game} play data page...")
 
                 if game == "chunithm":
                     await page.goto(
@@ -307,7 +307,7 @@ async def fetch_player_data(game: str) -> dict:
                 total_time = time.perf_counter() - start_time
                 session_type = "cached" if using_cached_session else "fresh login"
                 print(
-                    f"✅ [{session_type}] {game} done in {total_time:.2f}s "
+                    f"[OK] [{session_type}] {game} done in {total_time:.2f}s "
                     f"(login: {login_time:.2f}s) - Rating: {rating}, Cumulative: {cumulative}"
                 )
                 return {"rating": rating, "cumulative": cumulative, "failed": False, "failure_reason": None}
@@ -315,15 +315,15 @@ async def fetch_player_data(game: str) -> dict:
         except Exception as e:
             failure_reason = await capture_failure_details(page) if page else str(e)
             last_failure_reason = failure_reason
-            print(f"⚠️ Attempt {attempt} failed: {e}")
+            print(f"[WARN] Attempt {attempt} failed: {e}")
             print(f"   Details: {failure_reason}")
 
             if attempt < MAX_RETRIES:
-                print(f"⏳ Retrying in {RETRY_DELAY} seconds...")
+                print(f"[WAIT] Retrying in {RETRY_DELAY} seconds...")
                 await asyncio.sleep(RETRY_DELAY)
             else:
                 total_time = time.perf_counter() - start_time
-                print(f"❌ {game} failed after {total_time:.2f}s")
+                print(f"[ERROR] {game} failed after {total_time:.2f}s")
                 send_discord_notification(game, last_failure_reason, last_trace_path)
                 return {
                     "rating": 0 if game == "maimai" else 0.0,

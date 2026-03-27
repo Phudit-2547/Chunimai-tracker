@@ -21,7 +21,7 @@ async def connect_local_db():
     try:
         return await asyncpg.connect(LOCAL_DATABASE_URL)
     except Exception as e:
-        print(f"⚠️ Local DB connection failed (non-fatal): {e}")
+        print(f"[WARN] Local DB connection failed (non-fatal): {e}")
         return None
 
 
@@ -49,6 +49,28 @@ async def get_previous_cumulative(game: str, today_str: str) -> int:
             date_obj,
         )
         return row[col] if row and row[col] is not None else 0
+    finally:
+        await conn.close()
+
+
+async def get_previous_rating(game: str, exclude_date: str) -> float | None:
+    """Get the most recent rating before a given date, excluding failed scrapes."""
+    conn = await connect_db()
+    try:
+        date_obj = datetime.strptime(exclude_date, "%Y-%m-%d")
+        col = f"{game}_rating"
+        row = await conn.fetchrow(
+            f"""
+                SELECT {col} FROM public.play_data
+                WHERE play_date < $1
+                  AND {col} IS NOT NULL
+                  AND scrape_failed = FALSE
+                ORDER BY play_date DESC
+                LIMIT 1
+            """,
+            date_obj,
+        )
+        return row[col] if row else None
     finally:
         await conn.close()
 
@@ -98,7 +120,7 @@ async def upsert_play_data(
     try:
         await conn.execute(upsert_query, *params)
         print(
-            f"✅ Cloud DB saved: {date_str} | Maimai new: {maimai_new}, Chunithm new: {chunithm_new} | "
+            f"[OK] Cloud DB saved: {date_str} | Maimai new: {maimai_new}, Chunithm new: {chunithm_new} | "
             f"Maimai cumulative: {maimai_cumulative}, Chunithm cumulative: {chunithm_cumulative}"
         )
     finally:
@@ -109,9 +131,9 @@ async def upsert_play_data(
     if local_conn:
         try:
             await local_conn.execute(upsert_query, *params)
-            print(f"✅ Local DB saved: {date_str}")
+            print(f"[OK] Local DB saved: {date_str}")
         except Exception as e:
-            print(f"⚠️ Local DB write failed (non-fatal): {e}")
+            print(f"[WARN] Local DB write failed (non-fatal): {e}")
         finally:
             await local_conn.close()
 
@@ -124,7 +146,7 @@ async def test_db_connection():
     try:
         conn = await asyncpg.connect(DATABASE_URL)
         await conn.close()
-        print("✅ Cloud DB connection OK")
+        print("[OK] Cloud DB connection OK")
     except Exception as e:
         print(f"Database connection failed: {e}")
         return False
@@ -134,8 +156,8 @@ async def test_db_connection():
         local_conn = await connect_local_db()
         if local_conn:
             await local_conn.close()
-            print("✅ Local DB connection OK")
+            print("[OK] Local DB connection OK")
         else:
-            print("⚠️ Local DB not reachable (continuing with cloud only)")
+            print("[WARN] Local DB not reachable (continuing with cloud only)")
 
     return True

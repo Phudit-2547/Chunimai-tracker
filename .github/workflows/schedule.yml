@@ -3,7 +3,12 @@ name: Run Scraper
 on:
   schedule:
     - cron: "0 15 * * *" # Runs daily at 22:00 Thailand time (UTC+7)
-  workflow_dispatch: # ✅ Allows manual trigger
+  workflow_dispatch:
+    inputs:
+      backfill_date:
+        description: 'Date to backfill (YYYY-MM-DD). Leave empty for normal run.'
+        required: false
+        default: ''
 
 jobs:
   run-scraper:
@@ -55,7 +60,12 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           USERNAME: ${{ secrets.USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
-        run: uv run python main.py
+        run: |
+          if [ -n "${{ github.event.inputs.backfill_date }}" ]; then
+            uv run python main.py --backfill ${{ github.event.inputs.backfill_date }}
+          else
+            uv run python main.py
+          fi
 
       - name: Upload cookies cache
         uses: actions/cache@v5

@@ -4,16 +4,40 @@ from datetime import datetime
 
 from play_counter.config import CONFIG
 from play_counter.daily_play_notifier import send_notification
-from play_counter.db import get_previous_cumulative, test_db_connection, upsert_play_data
+from play_counter.db import get_previous_cumulative, get_previous_rating, test_db_connection, upsert_play_data
 from play_counter.reports.monthly import generate_monthly_report
 from play_counter.reports.weekly import generate_weekly_report
 from play_counter.scraper import fetch_player_data
 
 
 async def main():
+    # Backfill mode: fix a past failed day
+    if "--backfill" in sys.argv:
+        idx = sys.argv.index("--backfill")
+        target_date = sys.argv[idx + 1]
+
+        maimai_cumulative = await get_previous_cumulative("maimai", target_date)
+        chunithm_cumulative = await get_previous_cumulative("chunithm", target_date)
+        maimai_rating = await get_previous_rating("maimai", target_date)
+        chunithm_rating = await get_previous_rating("chunithm", target_date)
+
+        await upsert_play_data(
+            target_date,
+            0,                   # maimai_play_count
+            0,                   # chunithm_play_count
+            maimai_cumulative,
+            chunithm_cumulative,
+            maimai_rating,
+            chunithm_rating,
+            scrape_failed=True,
+            failure_reason="manual backfill — carried forward from previous day",
+        )
+        print(f"Backfilled {target_date} with carried-forward values.")
+        return
+
     # Quick Docker health check: python main.py --test
     if "--test" in sys.argv:
-        print("🧪 Docker health check...")
+        print("[TEST] Docker health check...")
         print(f"   Timezone:  {datetime.now().astimezone().tzinfo}")
         print(f"   Python:    {sys.version.split()[0]}")
         print(f"   Timestamp: {datetime.now():%Y-%m-%d %H:%M:%S}")
@@ -25,17 +49,17 @@ async def main():
             async with async_playwright() as p:
                 browser = await p.firefox.launch(headless=True)
                 await browser.close()
-            print("   Playwright: ✅ Firefox OK")
+            print("   Playwright: [OK] Firefox OK")
         except Exception as e:
-            print(f"   Playwright: ❌ {e}")
+            print(f"   Playwright: [ERROR] {e}")
             sys.exit(1)
 
         # Test DB connections
         db_ok = await test_db_connection()
         if db_ok:
-            print("\n✅ All systems go! Docker setup is working.")
+            print("\n[OK] All systems go! Docker setup is working.")
         else:
-            print("\n❌ Database connection failed.")
+            print("\n[ERROR] Database connection failed.")
             sys.exit(1)
         return
 
@@ -66,6 +90,19 @@ async def main():
         for game, data in player_data.items()
         if data.get("failed", False)
     )
+
+    # Initialize new_plays dict before failure handling
+    new_plays = {game: 0 for game in cumulative}
+
+    # Carry forward previous values on failure
+    if scrape_failed:
+        for game in cumulative:
+            last_known_cumulative = await get_previous_cumulative(game, today_str)
+            cumulative[game] = last_known_cumulative
+            new_plays[game] = 0
+        for game in ratings:
+            if ratings[game] is None or ratings[game] == 0:
+                ratings[game] = await get_previous_rating(game, today_str)
 
     # Calculate new plays (delta)
     # prev_cumulative = the *_cumulative value from the most recent DB record (yesterday's baseline)

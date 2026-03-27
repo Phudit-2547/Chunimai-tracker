@@ -57,9 +57,15 @@ async def main():
     player_data_results = await asyncio.gather(*tasks.values())
     player_data = dict(zip(tasks.keys(), player_data_results))
 
-    # Extract cumulative and ratings
+    # Extract cumulative, ratings, and failure info
     cumulative = {game: data["cumulative"] for game, data in player_data.items()}
     ratings = {game: data["rating"] for game, data in player_data.items()}
+    scrape_failed = any(data.get("failed", False) for data in player_data.values())
+    failure_reason = " | ".join(
+        f"{game}: {data.get('failure_reason', 'unknown')}"
+        for game, data in player_data.items()
+        if data.get("failed", False)
+    )
 
     # Calculate new plays (delta)
     # prev_cumulative = the *_cumulative value from the most recent DB record (yesterday's baseline)
@@ -73,7 +79,7 @@ async def main():
         else:
             new_plays[game] = max(0, cumulative[game] - prev_cumulative[game])
 
-    # Insert with ratings
+    # Insert with ratings and failure info
     await upsert_play_data(
         today_str,
         new_plays.get("maimai", 0),
@@ -82,6 +88,8 @@ async def main():
         cumulative.get("chunithm", 0),
         ratings.get("maimai"),
         ratings.get("chunithm"),
+        scrape_failed=scrape_failed,
+        failure_reason=failure_reason if scrape_failed else None,
     )
 
     send_notification("chunithm", new_plays.get("chunithm", 0))

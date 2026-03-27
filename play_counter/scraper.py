@@ -3,6 +3,7 @@ import json
 import re
 import time
 from pathlib import Path
+from datetime import datetime
 
 import requests
 from playwright.async_api import async_playwright
@@ -17,20 +18,26 @@ RETRY_DELAY = 2  # seconds
 COOKIES_DIR = Path("cookies")
 COOKIES_DIR.mkdir(exist_ok=True)
 
+# Trace/screenshot storage path
+TRACES_DIR = Path("traces")
+TRACES_DIR.mkdir(exist_ok=True)
+
 
 def get_cookies_path(game: str) -> Path:
     """Get path to cookies file for a game."""
     return COOKIES_DIR / f"{game}_state.json"
 
 
-def send_discord_notification(game: str, error_message: str):
+def send_discord_notification(game: str, failure_reason: str, trace_path: str = None):
     """Send notification to Discord when scraping fails."""
     if not DISCORD_WEBHOOK_URL:
         print(f"⏭️ Skipping failure notification for {game} — DISCORD_WEBHOOK_URL not configured")
         return
 
+    trace_info = f"\n📁 Trace saved: `{trace_path}`" if trace_path else ""
+
     payload = {
-        "content": f"🚨 **Scraping Failed** 🚨\n\n**Game:** {game}\n**Error:** {error_message}\n**All {MAX_RETRIES} retries exhausted.**"
+        "content": f"🚨 **Scraping Failed** 🚨\n\n**Game:** {game}\n**Reason:** `{failure_reason}`\n**All {MAX_RETRIES} retries exhausted.**{trace_info}"
     }
 
     try:
@@ -123,13 +130,46 @@ async def load_cookies(context, game: str) -> bool:
         return False
 
 
+async def capture_failure_details(page) -> str:
+    """Capture the URL and page text when a failure occurs."""
+    try:
+        url = page.url if page else "N/A"
+        page_text = ""
+        try:
+            page_text = await page.inner_text("body")
+            page_text = page_text.strip()[:500]  # Limit to 500 chars
+        except Exception:
+            page_text = "(could not capture page text)"
+
+        return f"url: {url} | body: {page_text}"
+    except Exception:
+        return "Failed to capture failure details"
+
+
+async def save_failure_trace(context, game: str) -> str:
+    """Save a Playwright trace for debugging failed attempts."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    trace_path = TRACES_DIR / f"{game}_failure_{timestamp}.zip"
+    try:
+        await context.tracing.stop(path=str(trace_path))
+        return str(trace_path)
+    except Exception as e:
+        print(f"⚠️ Failed to save trace: {e}")
+        return None
+
+
 async def fetch_player_data(game: str) -> dict:
     """
     Logs into the game website and retrieves player data (rating + cumulative play count).
     Uses cookie caching for faster subsequent runs.
 
     Returns:
-        dict: {"rating": float/int, "cumulative": int}
+        dict: {
+            "rating": float/int,
+            "cumulative": int,
+            "failed": bool,
+            "failure_reason": str or None
+        }
 
     For chunithm:
         - Rating from home page: extracts from .player_rating_num_block images
@@ -145,17 +185,23 @@ async def fetch_player_data(game: str) -> dict:
     if not USERNAME or not PASSWORD:
         default_rating = 0 if game == "maimai" else 0.0
         print("⚠️ SEGA credentials are not configured. Returning default values.")
-        return {"rating": default_rating, "cumulative": 0}
+        return {"rating": default_rating, "cumulative": 0, "failed": True, "failure_reason": "credentials_not_configured"}
 
     cookies_loaded = False
-    last_error = None
+    last_failure_reason = None
+    last_trace_path = None
 
     for attempt in range(1, MAX_RETRIES + 1):
+        browser = None
+        context = None
         try:
             async with async_playwright() as p:
                 browser = await p.firefox.launch(headless=True)
                 context = await browser.new_context()
                 page = await context.new_page()
+
+                # Start tracing for failure debugging
+                await context.tracing.start(screenshots=True, snapshots=True)
 
                 login_start = time.perf_counter()
                 cookies_path = get_cookies_path(game)
@@ -183,8 +229,8 @@ async def fetch_player_data(game: str) -> dict:
                 try:
                     await page.wait_for_url(HOME_URLS[game], timeout=10000)
                 except Exception as e:
-                    print(page.url)
-                    print(f"❌ Failed to load {game} home page: {e}")
+                    failure_reason = await capture_failure_details(page)
+                    print(f"❌ Failed to load {game} home page: {failure_reason}")
                     if cookies_loaded:
                         print("🔄 Cached session failed, retrying with fresh login...")
                         cookies_path = get_cookies_path(game)
@@ -194,6 +240,8 @@ async def fetch_player_data(game: str) -> dict:
                         await save_cookies(context, game)
                         await page.wait_for_url(HOME_URLS[game], timeout=10000)
                     else:
+                        last_failure_reason = f"wait_for_url_timeout | {failure_reason}"
+                        last_trace_path = await save_failure_trace(context, game)
                         await browser.close()
                         raise
 
@@ -262,19 +310,33 @@ async def fetch_player_data(game: str) -> dict:
                     f"✅ [{session_type}] {game} done in {total_time:.2f}s "
                     f"(login: {login_time:.2f}s) - Rating: {rating}, Cumulative: {cumulative}"
                 )
-                return {"rating": rating, "cumulative": cumulative}
+                return {"rating": rating, "cumulative": cumulative, "failed": False, "failure_reason": None}
 
         except Exception as e:
-            last_error = str(e)
+            failure_reason = await capture_failure_details(page) if page else str(e)
+            last_failure_reason = failure_reason
             print(f"⚠️ Attempt {attempt} failed: {e}")
+            print(f"   Details: {failure_reason}")
+
             if attempt < MAX_RETRIES:
                 print(f"⏳ Retrying in {RETRY_DELAY} seconds...")
                 await asyncio.sleep(RETRY_DELAY)
             else:
                 total_time = time.perf_counter() - start_time
                 print(f"❌ {game} failed after {total_time:.2f}s")
-                send_discord_notification(game, last_error)
-                return {"rating": 0 if game == "maimai" else 0.0, "cumulative": 0}
+                send_discord_notification(game, last_failure_reason, last_trace_path)
+                return {
+                    "rating": 0 if game == "maimai" else 0.0,
+                    "cumulative": 0,
+                    "failed": True,
+                    "failure_reason": last_failure_reason
+                }
+        finally:
+            if browser:
+                try:
+                    await browser.close()
+                except Exception:
+                    pass
 
 
 # Backward compatibility wrapper (if needed elsewhere)

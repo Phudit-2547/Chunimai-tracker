@@ -1,5 +1,6 @@
 from logging.config import fileConfig
 import os
+from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -14,6 +15,12 @@ config = context.config
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Load .env file if it exists
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+if _env_path.is_file():
+    from envparse import env
+    env.read_envfile(str(_env_path))
 
 # Override sqlalchemy.url from DATABASE_URL environment variable if set
 # This allows 'alembic check' to work without a database connection

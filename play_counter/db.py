@@ -61,20 +61,24 @@ async def upsert_play_data(
     chunithm_cumulative: int,
     maimai_rating: int,
     chunithm_rating: float,
+    scrape_failed: bool = False,
+    failure_reason: str = None,
 ):
     upsert_query = """
         INSERT INTO public.play_data
             (play_date, maimai_play_count, chunithm_play_count,
              maimai_cumulative, chunithm_cumulative,
-             maimai_rating, chunithm_rating)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
+             maimai_rating, chunithm_rating, scrape_failed, failure_reason)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         ON CONFLICT (play_date) DO UPDATE
           SET maimai_play_count=EXCLUDED.maimai_play_count,
               chunithm_play_count=EXCLUDED.chunithm_play_count,
               maimai_cumulative=EXCLUDED.maimai_cumulative,
               chunithm_cumulative=EXCLUDED.chunithm_cumulative,
               maimai_rating=EXCLUDED.maimai_rating,
-              chunithm_rating=EXCLUDED.chunithm_rating
+              chunithm_rating=EXCLUDED.chunithm_rating,
+              scrape_failed=EXCLUDED.scrape_failed,
+              failure_reason=EXCLUDED.failure_reason
     """
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
     params = (
@@ -85,6 +89,8 @@ async def upsert_play_data(
         chunithm_cumulative,
         maimai_rating,
         chunithm_rating,
+        scrape_failed,
+        failure_reason,
     )
 
     # Write to cloud DB (primary)

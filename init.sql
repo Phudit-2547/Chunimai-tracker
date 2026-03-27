@@ -6,5 +6,7 @@ CREATE TABLE IF NOT EXISTS public.play_data (
     maimai_cumulative    INTEGER DEFAULT 0,
     chunithm_cumulative  INTEGER DEFAULT 0,
     maimai_rating        NUMERIC,
-    chunithm_rating      NUMERIC
+    chunithm_rating      NUMERIC,
+    scrape_failed        BOOLEAN DEFAULT FALSE,
+    failure_reason       TEXT
 );
